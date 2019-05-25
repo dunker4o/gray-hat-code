@@ -3,7 +3,7 @@
 Created on Sat May 11 21:21:41 2019
 
 @author: Borko
-@version: 3.38
+@version: 3.42
 """
 
 import my_debugger
@@ -14,6 +14,7 @@ pid = input("Enter the PID of the process to attach to: ")
 
 debugger.attach(int(pid))
 
+'''
 thread_list = debugger.enumerate_threads()
 
 # For each thread in the list print the value in each register
@@ -33,5 +34,7 @@ for thread in thread_list:
     print("[**] SI: 0x%016x" % thread_context.Rsi)
     print("[**] DI: 0x%016x" % thread_context.Rdi)
     print("[*] END OF DUMP")
-    
+'''
+
+debugger.run()
 debugger.detach()

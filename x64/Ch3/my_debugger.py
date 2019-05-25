@@ -3,7 +3,7 @@
 Created on Sat May 11 21:05:56 2019
 
 @author: Borko
-@version: 3.37
+@version: 3.42
 """
 
 from ctypes import *
@@ -16,7 +16,12 @@ class debugger():
     def __init__(self):
         self.h_process          = None
         self.pid                = None
-        self.debugger_active    = None
+        self.debugger_active    = False
+        self.h_thread           = None
+        self.context            = None
+        self.exception          = None
+        self.exception_address  = None
+        
     
 
     def load(self, path_to_exe):
@@ -112,18 +117,41 @@ class debugger():
     
         if kernel32.WaitForDebugEvent(byref(debug_event), INFINITE):
             
-            # Just resume the process for now
+            # Obtain thread and context information
+            self.h_thread   = self.open_thread(debug_event.dwThreadId)
+            self.context    = self.get_thread_context(self.h_thread)
             
-            # As per p.33
-            #input("Press a key to continue...")
-            # Leave this to false to terminate the programme when enumerating
-            # threads as per p. 36
-            self.debugger_active = False
+            print("Event Code: %d Thread ID: %d" % 
+                  (debug_event.dwDebugEventCode, debug_event.dwThreadId))
+
+            # If the event code is an exception, examine it further
+            if debug_event.dwDebugEventCode == EXCEPTION_DEBUG_EVENT:
+                # Obtain the exception code
+                self.exception          = debug_event.u.Exception.ExceptionRecord.ExceptionCode
+                self.exception_address  = debug_event.u.Exception.ExceptionRecord.ExceptionAddress 
             
+            
+                if self.exception == EXCEPTION_ACCESS_VIOLATION:
+                    print ("[!] Access Violation detected.")
+                # If it's a breakpoint, call the internal handler
+                elif self.exception == EXCEPTION_BREAKPOINT:
+                    continue_status = self.exception_handler_breakpoint()
+                elif self.exception == EXCEPTION_GUARD_PAGE:
+                    print ("[!] Guard Page access detected.")
+                elif self.exception == EXCEPTION_SINGLE_STEP:
+                    print ("[*] Single Stepping.")
+
             kernel32.ContinueDebugEvent(debug_event.dwProcessId,
                                         debug_event.dwThreadId,
                                         continue_status)
             
+    def exception_handler_breakpoint(self):
+
+        print("[*] Inside the breakpoint handler.")
+        print("Exception Address: 0x%016x" % self.exception_address)
+        
+        return DBG_CONTINUE
+    
     def detach(self):
         
         if kernel32.DebugActiveProcessStop(self.pid):
